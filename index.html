@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" /> <title>Avifo — Demo Dashboard</title> 
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+<div class="brand">
+<div class="logo" aria-hidden="true">A</div>
+<div class="brand-text">
+<h1>Avifo</h1>
+<small>Securing Every Sky</small>
+</div>
+</div>
+<nav class="top-actions" aria-label="Top actions">
+<button class="btn">New Alert</button>
+<button class="btn secondary">Settings</button>
+</nav>
+</header>
+
+<main class="container" role="main">
+<section class="controls" aria-labelledby="controlsHeading">
+<h2 id="controlsHeading" class="visually-hidden">Scoring Controls</h2>
+
+<div class="control-item">
+<label for="pnr">PNR</label>
+<input id="pnr" type="text" placeholder="ABC123" aria-label="PNR">
+</div>
+
+<div class="control-item">
+<label for="time">Time to departure (min)</label>
+<input id="time" type="number" value="30" min="0" aria-label="Time to departure">
+</div>
+
+<div class="control-item">
+<label for="fare">Fare class</label>
+<input id="fare" type="text" value="Y" aria-label="Fare class">
+</div>
+
+<div class="control-item actions">
+<button id="scoreBtn" class="btn primary" aria-label="Score booking">Score Booking</button>
+</div>
+</section>
+
+<section class="results" aria-labelledby="resultsHeading">
+<h2 id="resultsHeading">Scoring Result</h2>
+<div id="resultCard" class="card" role="region" aria-live="polite">
+<div class="row"><strong>PNR:</strong> <span id="rpn">—</span></div>
+<div class="row"><strong>Risk score:</strong> <span id="rscore">—</span></div>
+<div class="row"><strong>Action:</strong> <span id="raction" class="badge">—</span></div>
+</div>
+</section>
+
+<section class="table-section" aria-labelledby="recentHeading">
+<h2 id="recentHeading">Recent Bookings</h2>
+<table class="bookings" aria-describedby="recentHeading">
+<thead>
+<tr><th scope="col">PNR</th><th scope="col">Time to dep</th><th scope="col">Fare</th><th scope="col">Risk</th><th scope="col">Action</th></tr>
+</thead>
+<tbody id="bookingsBody">
+<tr><td>ABC123</td><td>30</td><td>Y</td><td><span class="badge low">0.12</span></td><td><button class="btn tiny">Approve</button></td></tr>
+</tbody>
+</table>
+</section>
+</main>
+
+<script>
+// Demo JS: replace the simulated scoring with an actual API call when ready.
+async function scoreRemote(payload) {
+// Example: return fetch("http://localhost:8000/score_booking", { method: "POST", ... })
+//   .then(r=>r.json());
+// For demo, we'll simulate a response:
+const time = Number(payload.time_to_departure_minutes) || 0;
+const base = Math.exp(-time / 220); // smaller time => higher score
+const premiumFactor = (payload.fare_class && payload.fare_class.toUpperCase().startsWith('F')) ? 0.6 : 0.3;
+const score = Math.min(0.999, base * premiumFactor + Math.random() * 0.05);
+const action = score > 0.7 ? 'Hold' : (score > 0.4 ? 'Flag' : 'Approve');
+return { pnr: payload.pnr, risk_score: +(score.toFixed(3)), action };
+}
+
+document.getElementById('scoreBtn').addEventListener('click', async () => {
+const pnr = document.getElementById('pnr').value || 'ABC123';
+const time = Number(document.getElementById('time').value) || 30;
+const fare = document.getElementById('fare').value || 'Y';
+
+const payload = {
+pnr,
+passenger_name: "Demo Passenger",
+payment_country: "NG",
+ip_address: "1.2.3.4",
+time_to_departure_minutes: time,
+route: "LOS-DXB",
+fare_class: fare
+};
+
+// Replace scoreRemote with fetch() to backend when ready.
+const result = await scoreRemote(payload);
+
+document.getElementById('rpn').textContent = result.pnr;
+document.getElementById('rscore').textContent = result.risk_score;
+const ract = document.getElementById('raction');
+ract.textContent = result.action;
+ract.className = 'badge ' + (result.action ? result.action.toLowerCase() : '');
+
+// add to recent bookings table at top
+const tbody = document.getElementById('bookingsBody');
+const tr = document.createElement('tr');
+const badgeClass = result.risk_score > 0.7 ? 'high' : (result.risk_score > 0.4 ? 'mid' : 'low');
+tr.innerHTML = `<td>${result.pnr}</td><td>${time}</td><td>${fare}</td><td><span class="badge ${badgeClass}">${result.risk_score}</span></td><td><button class="btn tiny">Review</button></td>`;
+tbody.prepend(tr);
+});
+</script>
+</body>
+</html>
